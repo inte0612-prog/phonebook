@@ -1,36 +1,21 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pro PhoneBook - Secure & Modern Contact Manager
 
-## Getting Started
+AES-256 암호화 기술이 적용된 보안 중심의 프리미엄 연락처 관리 서비스입니다.
 
-First, run the development server:
+## 🚀 주요 특징
+- **브랜드 리뉴얼**: 세련된 "Pro PhoneBook" 아이덴티티와 모던한 대시보드 UI.
+- **철저한 보안**: 모든 개인 정보(이름, 번호)는 AES-256 방식으로 암호화되어 저장됩니다.
+- **인증 시스템**: 안전한 이메일 가입 및 로그인, 사용자별 데이터 격리(RLS).
+- **미디어 연동**: 연락처별 프로필 사진 업로드 및 관리 (Supabase Storage).
+- **모던 스택**: Next.js 14, Tailwind CSS, Supabase 연동.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🛠 기술 스택
+- **Frontend**: Next.js (App Router), Tailwind CSS
+- **Backend**: Supabase (Database, Auth, Storage)
+- **Encryption**: CryptoJS (AES-256)
+- **Typography**: Outfit, Inter
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📦 시작하기
+1. 의존성 설치: `npm install`
+2. 환경 변수 설정: `.env.local` 파일에 Supabase 설정 추가
+3. 개발 서버 실행: `npm run dev`

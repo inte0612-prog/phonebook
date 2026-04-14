@@ -1,29 +1,38 @@
 @import "tailwindcss";
 
 :root {
-  --background: #F0F2F5; /* FB Background */
-  --foreground: #1C1E21; /* FB Text */
-  --primary: #1877F2;     /* FB Blue */
+  --background: #F8FAFC; /* Modern Soft Background */
+  --foreground: #0F172A; /* Slate 900 */
+  --primary: #1877F2;     /* Core Blue */
+  --primary-dark: #0E5ACD;
   --header: #ffffff;
   --card: #ffffff;
-  --gray: #65676B;
+  --gray: #64748B; /* Slate 500 */
+  --border: #E2E8F0;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
   --color-header: var(--header);
   --color-card: var(--card);
   --color-fb-gray: var(--gray);
+  --color-border: var(--border);
   
-  --radius-fb: 8px;
+  --radius-pro: 12px;
+  --radius-pro-lg: 16px;
+  --radius-pro-full: 9999px;
+
+  --shadow-pro: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-pro-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: Inter, Segoe UI, sans-serif;
+  font-family: var(--font-inter), Segoe UI, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

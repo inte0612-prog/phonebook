@@ -7,8 +7,10 @@ import ContactCard from '@/components/contacts/ContactCard';
 import ContactForm from '@/components/contacts/ContactForm';
 import { supabase } from '@/lib/supabase';
 import { encrypt, generateSearchToken } from '@/lib/encryption';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
+  const [user, setUser] = useState<any>(null);
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -17,11 +19,35 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const router = useRouter();
   const PAGE_SIZE = 10;
+
+  // Check authentication
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+      } else {
+        setUser(session.user);
+      }
+    };
+    checkUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
+      if (!session) {
+        router.push('/login');
+      } else {
+        setUser(session.user);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [router]);
 
   // fetch contacts from Supabase
   const fetchContacts = useCallback(async (isMore = false) => {
-    if (!supabase) {
+    if (!supabase || !user) {
       setIsLoading(false);
       return;
     }
@@ -29,7 +55,8 @@ export default function Home() {
     try {
       let query = supabase
         .from('contacts')
-        .select('*');
+        .select('*')
+        .eq('user_id', user.id);
 
       if (selectedCategory !== '전체') {
         query = query.eq('category', selectedCategory);
@@ -97,6 +124,43 @@ export default function Home() {
       alert('데이터베이스 연결 설정이 필요합니다.');
       return;
     }
+
+    const uploadAttachments = async (contactId: string, files: File[]) => {
+      if (files.length === 0) return;
+
+      const uploadPromises = files.map(async (file) => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `${contactId}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('contact_files')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('contact_files')
+          .getPublicUrl(filePath);
+
+        return {
+          contact_id: contactId,
+          file_name: file.name,
+          file_url: publicUrl,
+          file_type: file.type,
+          user_id: user.id
+        };
+      });
+
+      const attachmentDatas = await Promise.all(uploadPromises);
+      
+      const { error } = await supabase
+        .from('contact_attachments')
+        .insert(attachmentDatas);
+
+      if (error) throw error;
+    };
+
     try {
       const contactData = {
         name: encrypt(formData.name),
@@ -104,8 +168,12 @@ export default function Home() {
         name_search: generateSearchToken(formData.name),
         phone_search: generateSearchToken(formData.phone),
         category: formData.category,
-        memo: formData.memo
+        memo: formData.memo,
+        image_url: formData.image_url,
+        user_id: user.id
       };
+
+      let contactId = editingContact?.id;
 
       if (editingContact) {
         // Update existing contact
@@ -114,28 +182,30 @@ export default function Home() {
           .update(contactData)
           .eq('id', editingContact.id);
 
-        if (!error) {
-          fetchContacts();
-          setIsModalOpen(false);
-          setEditingContact(null);
-        } else {
-          alert('수정에 실패했습니다.');
-        }
+        if (error) throw error;
       } else {
-        // Insert new contact
-        const { error } = await supabase
+        // Insert new contact and get the ID
+        const { data, error } = await supabase
           .from('contacts')
-          .insert([contactData]);
+          .insert([contactData])
+          .select()
+          .single();
 
-        if (!error) {
-          fetchContacts();
-          setIsModalOpen(false);
-        } else {
-          alert('저장에 실패했습니다.');
-        }
+        if (error) throw error;
+        contactId = data.id;
       }
+
+      // Handle attachments if any new files were selected
+      if (formData.attachments && formData.attachments.length > 0) {
+        await uploadAttachments(contactId, formData.attachments);
+      }
+
+      fetchContacts();
+      setIsModalOpen(false);
+      setEditingContact(null);
     } catch (err) {
       console.error(err);
+      alert('저장에 실패했습니다.');
     }
   };
 
@@ -169,9 +239,10 @@ export default function Home() {
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         onAddClick={() => { setEditingContact(null); setIsModalOpen(true); }}
+        user={user}
       />
 
-      <div className="flex min-h-[calc(100vh-3.5rem)] max-w-7xl mx-auto w-full">
+      <div className="flex min-h-[calc(100vh-4rem)] max-w-7xl mx-auto w-full">
         {/* Sidebar - Fixed on large screens */}
         <Sidebar
           selectedCategory={selectedCategory}
@@ -180,19 +251,19 @@ export default function Home() {
 
         {/* Main Feed */}
         <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-2xl mx-auto w-full">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold mb-2">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold font-outfit tracking-tighter mb-2 text-foreground">
               {selectedCategory === '전체' ? '모든 연락처' : `${selectedCategory}`}
             </h1>
-            <p className="text-fb-gray text-sm">
-              {isLoading ? '불러오는 중...' : `총 ${contacts.length}개의 연락처가 있습니다.`}
+            <p className="text-fb-gray text-sm font-medium">
+              {isLoading ? '연락처를 동기화하는 중...' : `${user?.user_metadata?.full_name || user?.email}님의 보관함에 총 ${contacts.length}개의 연락처가 있습니다.`}
             </p>
           </div>
 
           <div className="space-y-4">
             {isLoading && page === 0 ? (
-              <div className="flex justify-center items-center py-20">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-fb-blue"></div>
+              <div className="flex justify-center items-center py-24">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
               </div>
             ) : (
               <>
@@ -210,9 +281,9 @@ export default function Home() {
                     <button
                       onClick={loadMore}
                       disabled={isLoading}
-                      className="text-fb-blue font-semibold hover:underline text-sm disabled:opacity-50"
+                      className="text-primary font-bold hover:underline text-sm disabled:opacity-50 tracking-tight"
                     >
-                      {isLoading ? '불러오는 중...' : '더 보기'}
+                      {isLoading ? '추가 데이터를 불러오는 중...' : '연락처 더 보기'}
                     </button>
                   </div>
                 )}
@@ -221,20 +292,32 @@ export default function Home() {
           </div>
 
           {!isLoading && contacts.length === 0 && (
-            <div className="bg-fb-card rounded-fb p-8 text-center border dashed border-gray-300">
-              <p className="text-fb-gray font-medium">검색 결과가 없거나 등록된 연락처가 없습니다.</p>
-              <p className="text-xs text-gray-400 mt-2">Supabase 테이블 설정 및 환경 변수가 올바른지 확인해 주세요.</p>
+            <div className="bg-white rounded-pro p-12 text-center border-2 border-dashed border-border shadow-sm">
+              <div className="text-4xl mb-4">📭</div>
+              <p className="text-foreground font-bold font-outfit text-lg mb-1">찾으시는 연락처가 없습니다.</p>
+              <p className="text-xs text-fb-gray max-w-xs mx-auto leading-relaxed font-medium">
+                검색어를 확인하거나 새로운 연락처를 등록해 보세요. 개인 정보는 철저히 암호화되어 보호됩니다.
+              </p>
             </div>
           )}
         </main>
 
         {/* Right Sidebar */}
         <div className="hidden xl:block w-72 p-4 pt-8">
-          <div className="bg-fb-card p-4 rounded-fb border border-gray-200 shadow-sm">
-            <h3 className="font-bold mb-2">검색 및 보안</h3>
-            <p className="text-xs text-fb-gray leading-relaxed mb-4">
-              성함 또는 전화번호를 정확히 입력하시면 검색이 가능합니다. (보안상의 이유로 정확한 일치 검색만 지원합니다.)
+          <div className="bg-white p-6 rounded-pro border border-border shadow-pro">
+            <h3 className="font-bold font-outfit text-foreground mb-3 flex items-center gap-2">
+              <span className="text-primary">🛡️</span> 보안 및 검색 가이드
+            </h3>
+            <p className="text-xs text-fb-gray leading-relaxed mb-4 font-medium">
+              Pro PhoneBook은 <span className="text-primary font-bold">AES-256</span> 등급의 강력한 암호화 기술을 사용합니다. 성함 또는 전화번호를 <span className="text-foreground font-bold">정확히</span> 입력하시면 즉시 검색이 완료됩니다.
             </p>
+            <div className="pt-4 border-t border-border mt-4">
+               <p className="text-[10px] text-fb-gray font-bold uppercase tracking-widest">System Status</p>
+               <div className="flex items-center gap-2 mt-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                  <span className="text-[11px] font-bold text-foreground">Encrypted Cloud Active</span>
+               </div>
+            </div>
           </div>
         </div>
       </div>
